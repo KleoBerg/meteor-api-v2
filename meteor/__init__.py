@@ -1,10 +1,17 @@
 from flask import Flask
+from .config import Config
+from .flaskdgraph import DGraph
+
+# dgraph = DGraph()
 
 def create_app():
     app = Flask(__name__)
 
-    @app.route('/')
-    def hello():
-        return "Hello, Rebuild!"
+    app.config.from_object(Config)
+
+    # dgraph.init_app(app)
+
+    from .main.routes import main_bp
+    app.register_blueprint(main_bp)
 
     return app
