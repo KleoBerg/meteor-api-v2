@@ -1,34 +1,82 @@
 
-#     1 import pydgraph
-#     2 
-#     3 class DGraph:
-#     4     """
-#     5     A wrapper for the pydgraph client to integrate with a Flask application.
-#     6     """
-#     7     def __init__(self):
-#     8         self.client = None
-#     9 
-#    10     def init_app(self, app):
-#    11         """
-#    12         Initializes the Dgraph client using configuration from the Flask app.
-#    13         """
-#    14         host = app.config.get('DGRAPH_HOST')
-#    15         port = app.config.get('DGRAPH_PORT')
-#    16 
-#    17         client_stub = pydgraph.DgraphClientStub(f'{host}:{port}')
-#    18         self.client = pydgraph.DgraphClient(client_stub)
-#    19 
-#    20         app.logger.info(f'Successfully connected to Dgraph at {host}:{port}')
-#    21 
-#    22     def query(self, query, variables=None):
-#    23         """
-#    24         A helper method to run a query.
-#    25         """
-#    26         if not self.client:
-#    27             raise Exception("Dgraph client not initialized. Did you call init_app?")
-#    28 
-#    29         txn = self.client.txn(read_only=True)
-#    30         try:
-#    31             return txn.query(query, variables=variables)
-#    32         finally:
-#    33             txn.discard()
+
+from flask import current_app, g
+import pydgraph
+import logging
+
+class DGraph(object):
+    # Class for dgraph database connection
+
+    def __init__(self, app=None):
+        self.app = app
+        self.client_stub = None
+        self.logger = logging.getLogger(__name__)
+        
+        if app is not None:
+            self.init_app(app)
+
+    def init_app(self, app):
+        
+        if not hasattr(app, 'extensions'):
+            app.extensions = {}
+
+        if 'dgraph' in app.extensions:
+            self.logger.warning("DGraph extension already initialized for this app.")
+            return
+        
+        app.extensions['dgraph'] = self
+
+        self.app = app
+
+        app.config.setdefault('DGRAPH_ENDPOINT', 'localhost:9080')
+        app.config.setdefault('DGRAPH_CREDENTIALS', None)
+        app.config.setdefault('DGRAPH_OPTIONS', None)
+        app.teardown_appcontext(self.teardown)
+        
+        self.client_stub = pydgraph.DgraphClientStub(app.config['DGRAPH_ENDPOINT'],
+                                                     credentials=app.config['DGRAPH_CREDENTIALS'],
+                                                     options=app.config['DGRAPH_OPTIONS'])
+
+
+
+    # create a/ get the connection
+    @property
+    def connection(self):
+        if not hasattr(g, 'dgraph_client'):
+            self.logger.debug(f"Establishing connection to DGraph: {current_app.config['DGRAPH_ENDPOINT']}")
+
+            g.dgraph_client = pydgraph.DgraphClient(self.client_stub)
+    
+        return g.dgraph_client
+    
+    # create a/ get the transaction
+    @property
+    def txn(self):
+        if not hasattr(g, 'dgraph_txn'):
+            g.dgraph_txn = self.connection.txn()
+        
+        return g.dgraph_txn
+    
+    # teardown at the end of each request, commit transaction if no exception, discard if exception -> atomical requests
+    def teardown(self, exception):
+        txn = g.pop('dgraph_txn', None)
+        if txn is not None:
+            if exception is None:
+                try:
+                    txn.commit()
+                except Exception as e:
+                    self.logger.error(f"Error committing DGraph transaction: {e}")
+                    txn.discard()
+            else:  
+                self.logger.info(f"Discarding transaction due to request exception: {exception}")
+                txn.discard()
+
+    # Close the client stub when the app shuts down
+    def close(self):
+        if self.client_stub is not None:
+            self.client_stub.close()
+            self.client_stub = None
+            self.logger.info("DGraph client stub closed.")
+        
+
+    
