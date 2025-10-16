@@ -1,1 +1,1 @@
-from .client import DGraph
+from .client import DGraph as DGraph

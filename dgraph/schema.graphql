@@ -1,0 +1,36 @@
+
+# This schema is the Single Source of Truth for the API's data structures.
+#
+# The UserRole enum defined below is manually mirrored in the Python codebase
+# at `meteor/main/models.py`. This is a temporary measure.
+#
+# TODO: Implement a code generation step to create the Python enum automatically
+#       from this schema to ensure they remain synchronized.
+
+enum UserRole {
+    Anon
+    Contributor
+    Reviewer
+    Admin
+}
+
+
+interface Entry {
+    in: ID!
+}
+
+type User {
+    id: ID!
+    email: String! @index(exact) @upsert @dgraph(pred: "email")
+    displayName: String! @search(by: [term]) @dgraph(pred: "display_name")
+    orcid: String @index(exact) @dgraph(pred: "orcid")
+    dateJoined: DateTime @index(hour) @dgraph(pred: "_date_joined")
+    role: UserRole @dgraph(pred: "role")
+    affiliation: String @dgraph(pred: "affiliation")
+    preferenceEmails: Boolean @dgraph(pred: "preference_emails")
+    followsEntities: [Entry] @dgraph(pred: "follows_entities")
+    followsTypes: [String] @index(exact) @dgraph(pred: "follows_types")
+}
+
+
+

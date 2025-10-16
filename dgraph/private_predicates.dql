@@ -1,0 +1,8 @@
+# These predicates are part of the User type but are kept private
+# for security and business logic. They are not exposed via the
+# public GraphQL API.
+
+_pw: password .
+_pw_reset: string .
+_account_status: string .
+
