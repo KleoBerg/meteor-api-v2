@@ -1,0 +1,23 @@
+# Git and Docker files
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Python virtual environment and cache files
+.venv
+.pytest_cache
+.ruff_cache
+__pycache__/
+*.pyc
+
+# Local data and legacy code
+dgraph-data
+_legacy_source
+
+# Ignore egg and egg-info files
+*.egg-info/
+
+#ignore gemini conversations 
+gemini_conversations/

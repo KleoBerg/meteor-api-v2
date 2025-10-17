@@ -1,0 +1,5 @@
+# Public predicates that require special DQL-level definitions, needs to be loaded before the GraphQL schema is generated.
+
+# the @lang directive allows for multilingual support, it does not exist on graphql schema level so it needs to be added here. 
+name: string @lang .
+name_abbrev: string @lang .

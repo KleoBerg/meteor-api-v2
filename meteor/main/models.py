@@ -14,3 +14,10 @@ class UserRole(Enum):
     CONTRIBUTOR = "Contributor"
     REVIEWER = "Reviewer"
     ADMIN = "Admin"
+
+# this enum is for the internal account status predicate of the user type in dgraph (set in the private_predicates.dql)
+class AccountStatus(Enum):
+    PENDING = "pending"
+    ACTIVE = "active"
+
+

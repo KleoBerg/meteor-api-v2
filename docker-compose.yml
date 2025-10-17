@@ -1,0 +1,37 @@
+version: '3.7'
+
+services:
+  zero:
+    image: dgraph/dgraph:v23.1.0
+    ports:
+      - 5080:5080
+      - 6080:6080
+    command: dgraph zero --my=zero:5080
+
+  alpha:
+    image: dgraph/dgraph:v23.1.0
+    ports:
+      - 8080:8080
+      - 9080:9080
+    volumes:
+      - ./dgraph-data:/dgraph  # This is the crucial line for persistence
+
+    # TODO: For production, remove the --security "whitelist=0.0.0.0/0" flag.
+    # This will restore the default security, ensuring the admin endpoint is
+    # only accessible from within the container (i.e., by the Flask API),
+    # and not from the outside world.
+    command: dgraph alpha --my=alpha:7080 --cache "size-mb=2048" --security "whitelist=0.0.0.0/0" --zero=zero:5080
+    depends_on:
+      - zero
+
+  api:
+    build: .  # Build the image from the Dockerfile in the current directory
+    ports:
+      - 5000:5000
+    volumes:
+      - .:/app  # Mount our local code into the container for live-reloading
+    depends_on:
+      - alpha
+
+volumes:
+  dgraph-data: {} # Defines the named volume

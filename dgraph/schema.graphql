@@ -8,29 +8,135 @@
 #       from this schema to ensure they remain synchronized.
 
 enum UserRole {
-    Anon
-    Contributor
-    Reviewer
-    Admin
+  Anon
+  Contributor
+  Reviewer
+  Admin
 }
 
+enum EntryReviewStatus {
+  draft
+  pending
+  accepted
+  rejected
+}
 
+# union defined because political parties can be associated with either a single country or a multinational organization both accessed through the same predicate "country"
+union CountryOrMultinational = Country | Multinational
+
+
+# in graphql the fields of an interface must be redefined in the implementing types, so these filds are repeated in every type that implements Entry, if i change something here, i need to chnage it in every implementing type
 interface Entry {
-    in: ID!
+  id: ID!
+  dateCreated: DateTime @search(by: [day]) @dgraph(pred: "_date_created")
+  dateModified: DateTime @search(by: [day]) @dgraph(pred: "_date_modified")
+  addedBy: User @dgraph(pred: "_added_by")
+  reviewedBy: User @dgraph(pred: "_reviewed_by")
+  editedBy: [User] @dgraph(pred: "_edited_by")
+  entryReviewStatus: EntryReviewStatus @search(by: [hash]) @dgraph(pred: "entry_review_status")
+  name: String! @search(by: [term, trigram]) #@lang directive added in dgraph/public_predicates.dql, because this directive does not exist on graphql schema level
+  alternateNames: [String] @search(by: [term, trigram]) @dgraph(pred: "alternate_names")
+  description: String @search(by: [fulltext, trigram, term])
+  wikidataId: String @search(by: [hash]) @dgraph(pred: "wikidata_id")
+  hdl: String @search(by: [hash])
+  legacyId: [String] @search(by: [hash]) @dgraph(pred: "_legacy_id")
 }
 
 type User {
-    id: ID!
-    email: String! @index(exact) @upsert @dgraph(pred: "email")
-    displayName: String! @search(by: [term]) @dgraph(pred: "display_name")
-    orcid: String @index(exact) @dgraph(pred: "orcid")
-    dateJoined: DateTime @index(hour) @dgraph(pred: "_date_joined")
-    role: UserRole @dgraph(pred: "role")
-    affiliation: String @dgraph(pred: "affiliation")
-    preferenceEmails: Boolean @dgraph(pred: "preference_emails")
-    followsEntities: [Entry] @dgraph(pred: "follows_entities")
-    followsTypes: [String] @index(exact) @dgraph(pred: "follows_types")
+  id: ID!
+  email: String! @id @search(by: [hash]) @dgraph(pred: "email")
+  displayName: String! @search(by: [term]) @dgraph(pred: "display_name")
+  orcid: String @search(by: [hash]) @dgraph(pred: "orcid")
+  dateJoined: DateTime @search(by: [day]) @dgraph(pred: "_date_joined")
+  role: UserRole @dgraph(pred: "role")
+  affiliation: String @dgraph(pred: "affiliation")
+  preferenceEmails: Boolean @dgraph(pred: "preference_emails")
+  followsEntities: [Entry] @dgraph(pred: "follows_entities")
+  followsTypes: [String] @search(by: [hash]) @dgraph(pred: "follows_types")
 }
+
+
+type PoliticalParty implements Entry {
+  # Fields from the Entry interface
+  id: ID!
+  dateCreated: DateTime @search(by: [day]) @dgraph(pred: "_date_created")
+  dateModified: DateTime @search(by: [day]) @dgraph(pred: "_date_modified")
+  addedBy: User @dgraph(pred: "_added_by")
+  reviewedBy: User @dgraph(pred: "_reviewed_by")
+  editedBy: [User] @dgraph(pred: "_edited_by")
+  entryReviewStatus: EntryReviewStatus @search(by: [hash]) @dgraph(pred: "entry_review_status")
+  name: String! @search(by: [term, trigram]) #@lang directive added in dgraph/public_predicates.dql, because this directive does not exist on graphql schema level
+  alternateNames: [String] @search(by: [term, trigram]) @dgraph(pred: "alternate_names")
+  description: String @search(by: [fulltext, trigram, term])
+  wikidataId: String @search(by: [hash]) @dgraph(pred: "wikidata_id")
+  hdl: String @search(by: [hash])
+  legacyId: [String] @search(by: [hash]) @dgraph(pred: "_legacy_id")
+  
+  # Fields specific to PoliticalParty
+  nameAbbrev: String @search(by: [term, trigram]) @dgraph(pred: "name_abbrev") #@lang directive added in dgraph/public_predicates.dql, because this directive does not exist on graphql schema level
+  parlgovId: String @search(by: [hash]) @dgraph(pred: "parlgov_id")
+  partyfactsId: String @search(by: [hash]) @dgraph(pred: "partyfacts_id")
+  country: CountryOrMultinational
+  url: String @search(by: [hash])
+  colorHex: String @dgraph(pred: "color_hex")
+  publishes: [NewsSource]
+}  
+
+
+# TODO :only implements entry for now, add its own fields later
+type Country implements Entry { 
+  id: ID!
+  dateCreated: DateTime @search(by: [day]) @dgraph(pred: "_date_created")
+  dateModified: DateTime @search(by: [day]) @dgraph(pred: "_date_modified")
+  addedBy: User @dgraph(pred: "_added_by")
+  reviewedBy: User @dgraph(pred: "_reviewed_by")
+  editedBy: [User] @dgraph(pred: "_edited_by")
+  entryReviewStatus: EntryReviewStatus @search(by: [hash]) @dgraph(pred: "entry_review_status")
+  name: String! @search(by: [term, trigram]) #@lang directive added in dgraph/public_predicates.dql, because this directive does not exist on graphql schema level
+  alternateNames: [String] @search(by: [term, trigram]) @dgraph(pred: "alternate_names")
+  description: String @search(by: [fulltext, trigram, term])
+  wikidataId: String @search(by: [hash]) @dgraph(pred: "wikidata_id")
+  hdl: String @search(by: [hash])
+  legacyId: [String] @search(by: [hash]) @dgraph(pred: "_legacy_id")
+}
+
+# TODO :only implements entry for now, add its own fields later
+type Multinational implements Entry {
+  id: ID!
+  dateCreated: DateTime @search(by: [day]) @dgraph(pred: "_date_created")
+  dateModified: DateTime @search(by: [day]) @dgraph(pred: "_date_modified")
+  addedBy: User @dgraph(pred: "_added_by")
+  reviewedBy: User @dgraph(pred: "_reviewed_by")
+  editedBy: [User] @dgraph(pred: "_edited_by")
+  entryReviewStatus: EntryReviewStatus @search(by: [hash]) @dgraph(pred: "entry_review_status")
+  name: String! @search(by: [term, trigram]) #@lang directive added in dgraph/public_predicates.dql, because this directive does not exist on graphql schema level
+  alternateNames: [String] @search(by: [term, trigram]) @dgraph(pred: "alternate_names")
+  description: String @search(by: [fulltext, trigram, term])
+  wikidataId: String @search(by: [hash]) @dgraph(pred: "wikidata_id")
+  hdl: String @search(by: [hash])
+  legacyId: [String] @search(by: [hash]) @dgraph(pred: "_legacy_id")
+}
+
+# TODO :only implements entry for now, add its own fields later
+type NewsSource implements Entry {
+  id: ID!
+  dateCreated: DateTime @search(by: [day]) @dgraph(pred: "_date_created")
+  dateModified: DateTime @search(by: [day]) @dgraph(pred: "_date_modified")
+  addedBy: User @dgraph(pred: "_added_by")
+  reviewedBy: User @dgraph(pred: "_reviewed_by")
+  editedBy: [User] @dgraph(pred: "_edited_by")
+  entryReviewStatus: EntryReviewStatus @search(by: [hash]) @dgraph(pred: "entry_review_status")
+  name: String! @search(by: [term, trigram]) #@lang directive added in dgraph/public_predicates.dql, because this directive does not exist on graphql schema level
+  alternateNames: [String] @search(by: [term, trigram]) @dgraph(pred: "alternate_names")
+  description: String @search(by: [fulltext, trigram, term])
+  wikidataId: String @search(by: [hash]) @dgraph(pred: "wikidata_id")
+  hdl: String @search(by: [hash])
+  legacyId: [String] @search(by: [hash]) @dgraph(pred: "_legacy_id")
+ }
+
+
+
+
 
 
 
